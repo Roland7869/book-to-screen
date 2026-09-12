@@ -537,15 +537,9 @@ Feedback, ideas and contributions are welcome.
 # License
 
 
-A license should be added before publishing the repository.
-
-
-For a fully open-source project, consider:
-
-
 * **MIT License** — simple and permissive
 * **Apache License 2.0** — permissive with additional patent protections
 * **GPLv3** — requires derivative open-source projects to remain open source
 
 
-For this project, the **MIT License** would probably be the simplest choice for an initial public release.
+
