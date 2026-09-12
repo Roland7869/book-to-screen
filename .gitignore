@@ -1,0 +1,23 @@
+# Compiled
+dist/
+build/
+*.exe
+*.spec
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Config (local settings)
+config.json
+custom_prompts.json
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.vscode/
+.idea/

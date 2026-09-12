@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scene Canvas — Pureref for scenes</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#11151d; --panel2:#0f131b; --border:#232a37;
+    --fg:#e6ebf2; --muted:#8b96a7; --accent:#4f9cff; --accent2:#2f6fe0;
+    --ok:#3ecf8e; --warn:#f5a623; --danger:#ff5d5d;
+    --grid:rgba(255,255,255,.03);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow:hidden}
+  button{font:inherit;color:inherit;background:#1a2130;border:1px solid var(--border);
+    border-radius:8px;padding:7px 11px;cursor:pointer}
+  button:hover{background:#222b3d;border-color:#33405a}
+  button.primary{background:var(--accent2);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:var(--accent)}
+  button.active{background:var(--accent2);border-color:var(--accent);color:#fff}
+  button.danger{color:var(--danger)}
+  input,textarea,select{font:inherit;color:var(--fg);background:#0d1119;border:1px solid var(--border);
+    border-radius:8px;padding:8px 10px;outline:none;width:100%}
+  input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{resize:vertical}
+  .muted{color:var(--muted)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#2a3446;border-radius:6px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  #app{display:flex;flex-direction:column;height:100vh}
+
+  /* Top bar */
+  #topbar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--panel)}
+  #brand{font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+  #brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  #tabs{display:flex;gap:6px;flex:1;overflow:auto;padding:2px 0}
+  .tab{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;white-space:nowrap;color:var(--muted)}
+  .tab:hover{background:#171d29}
+  .tab.active{background:#1a2130;border-color:var(--border);color:var(--fg)}
+  .tab .x{opacity:.6;padding:0 4px}
+  .tab .x:hover{opacity:1;color:var(--danger)}
+  .addtab{width:28px;height:28px;padding:0;display:grid;place-items:center;font-size:16px}
+  .topbtns{display:flex;gap:8px}
+
+  /* Body */
+  #body{display:flex;flex:1;min-height:0}
+  .side{width:330px;min-width:330px;background:var(--panel);border-right:1px solid var(--border);
+    overflow:auto;display:flex;flex-direction:column}
+  .side.right{border-right:0;border-left:1px solid var(--border)}
+  .section{padding:14px;border-bottom:1px solid var(--border)}
+  .section h3{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:700}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  .row{display:flex;gap:8px;align-items:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+  /* Center */
+  #center{flex:1;display:flex;flex-direction:column;min-width:0}
+  #toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--panel);flex-wrap:wrap}
+  #toolbar .spacer{flex:1}
+  #toolbar .grp{display:flex;gap:6px;align-items:center}
+  #toolbar select{width:auto;padding:6px 8px}
+  #toolbar .sep{width:1px;height:22px;background:var(--border)}
+  #opwrap{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+  #opacity{-webkit-appearance:none;width:110px;height:4px;border-radius:3px;background:#2a3446;padding:0;border:0}
+  #opacity::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+
+  #canvas-scroll{flex:1;overflow:auto;background:var(--panel2);position:relative}
+  #canvas{position:relative;width:2400px;height:1600px;
+    background-color:#0d1119;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:40px 40px}
+  #canvas-scroll.drag{outline:3px dashed var(--accent);outline-offset:-6px}
+  #conns{position:absolute;top:0;left:0;width:2400px;height:1600px;pointer-events:none;z-index:1}
+  .conn-line{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 5;opacity:.85}
+  .conn-label{fill:#fff;font:12px sans-serif;paint-order:stroke;stroke:#0b0e14;stroke-width:4px;stroke-linejoin:round}
+
+  #empty{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:10px;
+    align-items:center;justify-content:center;color:var(--muted);pointer-events:none;text-align:center;padding:40px}
+  #empty .big{font-size:40px}
+
+  /* Reference card */
+  .ref{position:absolute;min-width:40px;min-height:40px;border:2px solid transparent;border-radius:4px;
+    box-shadow:0 6px 22px rgba(0,0,0,.5);background:#000;overflow:visible}
+  .ref img{width:100%;height:100%;display:block;border-radius:2px;pointer-events:none;user-select:none}
+  .ref.sel{border-color:var(--accent)}
+  .ref.connecting{border-color:var(--ok);box-shadow:0 0 0 3px rgba(62,207,142,.4),0 6px 22px rgba(0,0,0,.5)}
+  .ref.locked::after{content:"🔒";position:absolute;top:2px;right:2px;font-size:12px;
+    background:rgba(0,0,0,.6);border-radius:4px;padding:0 3px}
+  .reflabel{position:absolute;left:0;bottom:100%;margin-bottom:4px;font-size:12px;font-weight:600;color:#fff;
+    background:rgba(0,0,0,.72);border:1px solid var(--border);border-radius:6px;padding:1px 7px;white-space:nowrap;pointer-events:none}
+  .resize{position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;background:var(--accent);
+    border:2px solid #0b0e14;border-radius:50%;cursor:nwse-resize;display:none}
+  .ref.sel .resize,.ref:hover .resize{display:block}
+  #canvas.connect-mode .ref{cursor:crosshair}
+
+  /* Ref list */
+  #refList{list-style:none;margin:0;padding:0}
+  #refList li{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #1a2130;cursor:pointer}
+  #refList li:hover{background:#141a25}
+  #refList .refname{padding:5px 8px;font-size:13px}
+  #refList .del{width:26px;padding:4px 0;background:transparent;border:none;color:var(--muted)}
+  #refList .del:hover{color:var(--danger);background:transparent}
+
+  /* prompt output */
+  #promptOut{min-height:120px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .badge{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;background:#1a2130;border:1px solid var(--border);color:var(--muted)}
+  .pill{font-size:11px;color:var(--muted)}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1a2130;border:1px solid var(--border);
+    padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar">
+    <div id="brand"><span class="dot"></span>Scene&nbsp;Canvas</div>
+    <div id="tabs"></div>
+    <div class="topbtns">
+      <button id="saveBtn" title="Save all sheets to this browser (Ctrl+S)">Save</button>
+      <button id="exportBtn" title="Download all sheets as one JSON file">Export</button>
+      <button id="importBtn" title="Load sheets from a JSON file">Import</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" />
+    </div>
+  </div>
+
+  <div id="body">
+    <!-- LEFT: scene + script + prompt -->
+    <div class="side">
+      <div class="section">
+        <h3>Scene sheet</h3>
+        <div class="field">
+          <label>Scene name</label>
+          <input id="sceneName" placeholder="e.g. Chapter 3 — The Snowfield" />
+        </div>
+        <div class="field">
+          <label>Target video AI</label>
+          <select id="target"></select>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Inputs</h3>
+        <div class="field">
+          <label>Book script (script-writer output)</label>
+          <textarea id="scriptIn" rows="5" placeholder="Paste the scene script from your book-to-video script writer…"></textarea>
+        </div>
+        <div class="field">
+          <label>Video script output</label>
+          <textarea id="videoOut" rows="4" placeholder="Paste the video-script-writer output for this scene…"></textarea>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Video prompt</h3>
+        <div class="row" style="margin-bottom:10px">
+          <button id="genTemplate" class="primary" style="flex:1">Generate (template)</button>
+          <button id="genLLM" style="flex:1">Generate (LLM)</button>
+        </div>
+        <textarea id="promptOut" rows="8" placeholder="Your generated video prompt will appear here."></textarea>
+        <div class="row" style="margin-top:8px">
+          <button id="copyPrompt" class="primary">Copy prompt</button>
+          <button id="clearPrompt" class="danger">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: canvas -->
+    <div id="center">
+      <div id="toolbar">
+        <div class="grp">
+          <button id="connectBtn">🔗 Connect</button>
+          <span id="connHint" class="pill" style="display:none">click first reference…</span>
+        </div>
+        <div class="sep"></div>
+        <div class="grp" id="selTools" style="display:none">
+          <span id="opwrap">Opacity <input type="range" id="opacity" min="20" max="100" value="100" /></span>
+          <button id="lockBtn" title="Lock position">🔓</button>
+          <button id="frontBtn" title="Bring to front">⬆ Front</button>
+          <button id="renameBtn" title="Rename reference">✎ Name</button>
+          <button id="delRefBtn" class="danger" title="Delete reference">🗑</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="grp">
+          <button id="resetView">Reset view</button>
+          <button id="clearSheet" class="danger">Clear sheet</button>
+        </div>
+      </div>
+      <div id="canvas-scroll">
+        <div id="canvas">
+          <svg id="conns" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="empty">
+            <div class="big">🖼️</div>
+            <div><b>Drag &amp; drop reference images here</b></div>
+            <div class="muted">Move, resize &amp; name them · <b>Connect</b> to link them · each scene is one saveable sheet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: references + settings -->
+    <div class="side right">
+      <div class="section">
+        <h3>References <span class="badge" id="refCount">0</span></h3>
+        <ul id="refList"></ul>
+        <div class="hint">Names are used <b>verbatim</b> in the generated prompt, so name them as the video AI should (e.g. “Raksha”, “the red-dress figure”, “snowfield”).</div>
+      </div>
+
+      <div class="section">
+        <h3>Connections</h3>
+        <ul id="connList" class="muted" style="list-style:none;margin:0;padding:0"></ul>
+      </div>
+
+      <div class="section">
+        <h3>LLM settings</h3>
+        <div class="field">
+          <label>Base URL (OpenAI-compatible)</label>
+          <input id="setBase" placeholder="https://api.openai.com/v1" />
+        </div>
+        <div class="field">
+          <label>API key</label>
+          <input id="setKey" type="password" placeholder="sk-…  (stored only in this browser)" />
+        </div>
+        <div class="field">
+          <label>Model</label>
+          <input id="setModel" placeholder="gpt-4o" />
+        </div>
+        <div class="hint">Works with any OpenAI-compatible endpoint (OpenAI, Groq, a local server, or your custom provider). “Generate (template)” works fully offline with no key.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const SVGNS="http://www.w3.org/2000/svg";
+const LS_SHEETS="sceneCanvas.sheets";
+const LS_SETTINGS="sceneCanvas.settings";
+
+const PROFILES={
+  seedance25:{label:"Seedance 2.5",aspect:"21:9",dur:"15s",fps:"24fps",res:"480p",
+    style:"Cinematic, filmic, natural motion, shallow depth of field, consistent characters, filmic color grade",
+    tone:"Describe one continuous shot: establish the frame, then the named elements and how they relate, then motion and mood.",
+    negative:"distorted faces, extra limbs, warped text, flicker, morphing, identity drift"},
+  sora:{label:"Sora",aspect:"16:9",dur:"10s",fps:"24fps",res:"1080p",
+    style:"Photorealistic, physically accurate, natural lighting, coherent camera movement",
+    tone:"Write one or two vivid cinematic sentences; stress real-world physics and believable camera behavior.",
+    negative:"—"},
+  runway:{label:"Runway Gen-4",aspect:"16:9",dur:"5–10s",fps:"24fps",res:"720p",
+    style:"Cinematic, stylized, strong purposeful motion",
+    tone:"Short, punchy, subject-first prompt with one clear action.",
+    negative:"—"},
+  kling:{label:"Kling 2.x",aspect:"16:9 / 9:16",dur:"5–10s",fps:"24fps",res:"1080p",
+    style:"Realistic, expressive, natural human motion",
+    tone:"Lead with subject and action; add style and camera in a second phrase.",
+    negative:"—"},
+  luma:{label:"Luma Ray2",aspect:"16:9",dur:"5–10s",fps:"24fps",res:"720p",
+    style:"Smooth, cinematic, consistent subjects",
+    tone:"Concise scene description with one clear camera move.",
+    negative:"—"},
+  veo:{label:"Google Veo 3",aspect:"16:9",dur:"8s",fps:"24fps",res:"1080p",
+    style:"Cinematic, with synchronized audio/dialogue where relevant",
+    tone:"Describe the shot, the action, and any dialogue or sound.",
+    negative:"—"},
+  pika:{label:"Pika 2.x",aspect:"16:9",dur:"3–5s",fps:"24fps",res:"720p",
+    style:"Stylized, punchy, creative",
+    tone:"One short line: subject + action + style.",
+    negative:"—"},
+  generic:{label:"Generic / custom",aspect:"16:9",dur:"—",fps:"24fps",res:"—",
+    style:"Cinematic",tone:"Clear, descriptive, subject-first.",negative:"—"},
+};
+
+let sheets=[];
+let currentIdx=0;
+let connectMode=false;
+let connectFrom=null;
+let selectedRefId=null;
+let drag=null;
+let maxZ=1;
+let _saveTimer=null;
+
+const $=id=>document.getElementById(id);
+
+function uid(p){return (p||"x")+"_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function cur(){return sheets[currentIdx];}
+function toast(msg,ms=2200){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),ms);}
+
+/* ---------- persistence ---------- */
+function persist(){
+  try{ localStorage.setItem(LS_SHEETS,JSON.stringify(sheets)); }
+  catch(e){ toast("Too large for browser storage — use Export to save a file.",3600); }
+}
+function persistSoon(){clearTimeout(_saveTimer);_saveTimer=setTimeout(persist,400);}
+function loadSheets(){
+  try{const d=JSON.parse(localStorage.getItem(LS_SHEETS));if(Array.isArray(d)&&d.length){sheets=d;maxZ=(d[0].refs[0]&&d[0].refs[0].z)||1;return;}}catch(e){}
+}
+function loadSettings(){try{return JSON.parse(localStorage.getItem(LS_SETTINGS))||defSettings();}catch(e){return defSettings();}}
+function defSettings(){return {baseUrl:"https://api.openai.com/v1",apiKey:"",model:"gpt-4o"};}
+function saveSettings(){
+  const s={baseUrl:$("setBase").value.trim(),apiKey:$("setKey").value.trim(),model:$("setModel").value.trim()||"gpt-4o"};
+  localStorage.setItem(LS_SETTINGS,JSON.stringify(s));
+}
+
+/* ---------- sheets ---------- */
+function newSheet(name){
+  const s={id:uid("s"),name:name||("Scene "+(sheets.length+1)),script:"",videoOut:"",target:"seedance25",refs:[],conns:[],prompt:""};
+  sheets.push(s);return s;
+}
+
+/* ---------- refs ---------- */
+function addRef(src,x,y,w,h,name){
+  const s=cur();
+  maxZ++;
+  const r={id:uid("r"),name:name||("Ref "+(s.refs.length+1)),src,x:Math.max(0,x),y:Math.max(0,y),w:Math.max(40,w),h:Math.max(40,h),opacity:1,locked:false,z:maxZ};
+  s.refs.push(r);
+  selectRef(r.id);
+  renderRefs();persist();
+  return r;
+}
+function deleteRef(id){
+  const s=cur();
+  s.refs=s.refs.filter(r=>r.id!==id);
+  s.conns=s.conns.filter(c=>c.from!==id&&c.to!==id);
+  if(selectedRefId===id)selectedRefId=null;
+  if(connectFrom===id)connectFrom=null;
+  renderRefs();persist();
+}
+function selectRef(id){selectedRefId=id;renderRefs();}
+
+/* ---------- rendering ---------- */
+function renderTabs(){
+  const t=$("tabs");t.innerHTML="";
+  sheets.forEach((s,i)=>{
+    const el=document.createElement("div");
+    el.className="tab"+(i===currentIdx?" active":"");
+    el.innerHTML=`<span>${escapeHtml(s.name)}</span><span class="x" title="Close">×</span>`;
+    el.addEventListener("click",e=>{
+      if(e.target.classList.contains("x")){
+        if(sheets.length===1){toast("Keep at least one sheet.");return;}
+        if(!confirm(`Close sheet “${s.name}”?`))return;
+        sheets.splice(i,1); if(currentIdx>=sheets.length)currentIdx=sheets.length-1;
+        selectedRefId=null;connectFrom=null;renderAll();persist();return;
+      }
+      currentIdx=i;selectedRefId=null;connectFrom=null;renderAll();
+    });
+    t.appendChild(el);
+  });
+  const add=document.createElement("button");add.className="addtab";add.textContent="+";add.title="New scene sheet";
+  add.addEventListener("click",()=>{newSheet();currentIdx=sheets.length-1;renderAll();persist();});
+  t.appendChild(add);
+}
+
+function renderPanels(){
+  const s=cur();
+  $("sceneName").value=s.name;
+  $("scriptIn").value=s.script;
+  $("videoOut").value=s.videoOut;
+  const sel=$("target");
+  if(sel.options.length!==Object.keys(PROFILES).length){
+    sel.innerHTML="";
+    Object.keys(PROFILES).forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=PROFILES[k].label;sel.appendChild(o);});
+  }
+  sel.value=s.target;
+  $("promptOut").value=s.prompt||"";
+  // settings
+  const st=loadSettings();
+  $("setBase").value=st.baseUrl;$("setKey").value=st.apiKey;$("setModel").value=st.model;
+  updateSelTools();
+}
+
+function renderRefs(){
+  const canvas=$("canvas");
+  canvas.querySelectorAll(".ref").forEach(e=>e.remove());
+  const s=cur();
+  $("empty").style.display=s.refs.length?"none":"flex";
+  const refs=[...s.refs].sort((a,b)=>(a.z||1)-(b.z||1));
+  for(const r of refs){
+    const d=document.createElement("div");
+    d.className="ref"+(r.id===selectedRefId?" sel":"")+(r.id===connectFrom?" connecting":"")+(r.locked?" locked":"");
+    d.dataset.id=r.id;
+    d.style.left=r.x+"px";d.style.top=r.y+"px";
+    d.style.width=r.w+"px";d.style.height=r.h+"px";
+    d.style.opacity=r.opacity;d.style.zIndex=r.z||1;
+    const img=document.createElement("img");img.src=r.src;img.draggable=false;
+    d.appendChild(img);
+    const label=document.createElement("div");label.className="reflabel";label.textContent=r.name;d.appendChild(label);
+    const handle=document.createElement("div");handle.className="resize";d.appendChild(handle);
+    canvas.appendChild(d);
+  }
+  renderConns();
+  renderRefList();
+  renderConnList();
+  updateSelTools();
+}
+
+function renderConns(){
+  const svg=$("conns");svg.innerHTML="";
+  const s=cur();const byId={};s.refs.forEach(r=>byId[r.id]=r);
+  for(const c of s.conns){
+    const a=byId[c.from],b=byId[c.to];if(!a||!b)continue;
+    const ax=a.x+a.w/2,ay=a.y+a.h/2,bx=b.x+b.w/2,by=b.y+b.h/2;
+    const line=document.createElementNS(SVGNS,"line");
+    line.setAttribute("x1",ax);line.setAttribute("y1",ay);line.setAttribute("x2",bx);line.setAttribute("y2",by);
+    line.setAttribute("class","conn-line");svg.appendChild(line);
+    if(c.label){
+      const t=document.createElementNS(SVGNS,"text");
+      t.setAttribute("x",(ax+bx)/2);t.setAttribute("y",(ay+by)/2-7);
+      t.setAttribute("class","conn-label");t.setAttribute("text-anchor","middle");
+      t.textContent=c.label;svg.appendChild(t);
+    }
+  }
+}
+
+function renderRefList(){
+  const s=cur();const ul=$("refList");ul.innerHTML="";
+  $("refCount").textContent=s.refs.length;
+  if(!s.refs.length){ul.innerHTML='<li class="muted" style="cursor:default">No references yet — drop images on the canvas.</li>';return;}
+  for(const r of s.refs){
+    const li=document.createElement("li");
+    const inp=document.createElement("input");inp.className="refname";inp.value=r.name;inp.placeholder="name…";
+    inp.addEventListener("input",()=>{r.name=inp.value;renderConns();persistSoon();});
+    const del=document.createElement("button");del.className="del";del.textContent="×";del.title="Delete";
+    del.addEventListener("click",e=>{e.stopPropagation();deleteRef(r.id);});
+    li.appendChild(inp);li.appendChild(del);
+    li.addEventListener("click",()=>{selectRef(r.id);});
+    ul.appendChild(li);
+  }
+}
+
+function renderConnList(){
+  const s=cur();const ul=$("connList");const byId={};s.refs.forEach(r=>byId[r.id]=r);
+  ul.innerHTML="";
+  if(!s.conns.length){ul.innerHTML='<li class="muted" style="padding:3px 0">No connections yet.</li>';return;}
+  for(const c of s.conns){
+    const li=document.createElement("li");
+    li.style.display="flex";li.style.justifyContent="space-between";li.style.alignItems="center";
+    li.style.padding="4px 0";li.style.borderBottom="1px solid #1a2130";
+    const name=(byId[c.from]&&byId[c.from].name||"?")+" ⇄ "+(byId[c.to]&&byId[c.to].name||"?");
+    const lab=document.createElement("span");lab.textContent=(c.label?c.label+" : ":"")+name;
+    const del=document.createElement("button");del.className="del";del.textContent="×";del.style.cssText="width:24px;padding:3px 0;background:transparent;border:none;color:var(--muted)";
+    del.addEventListener("click",e=>{e.stopPropagation();s.conns=s.conns.filter(x=>x!==c);renderRefs();persist();});
+    li.appendChild(lab);li.appendChild(del);ul.appendChild(li);
+  }
+}
+
+function updateSelTools(){
+  const s=cur();const r=s.refs.find(x=>x.id===selectedRefId);
+  const tools=$("selTools");
+  tools.style.display=r?"flex":"none";
+  if(r){
+    $("opacity").value=Math.round(r.opacity*100);
+    $("lockBtn").textContent=r.locked?"🔒":"🔓";
+  }
+}
+
+function renderAll(){renderTabs();renderPanels();renderRefs();}
+
+/* ---------- image ingestion ---------- */
+function fileToDataURL(file,maxDim=1400){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth,h=img.naturalHeight;
+      const scale=Math.min(1,maxDim/Math.max(w,h));
+      w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+      const c=document.createElement("canvas");c.width=w;c.height=h;
+      const ctx=c.getContext("2d");
+      const keepAlpha=(file.type==="image/png"||file.type==="image/svg+xml");
+      if(!keepAlpha){ctx.fillStyle="#0b0e14";ctx.fillRect(0,0,w,h);}
+      ctx.drawImage(img,0,0,w,h);
+      const type=keepAlpha?"image/png":"image/jpeg";
+      res({src:c.toDataURL(type,0.85),w,h});
+    };
+    img.onerror=rej;
+    img.src=URL.createObjectURL(file);
+  });
+}
+
+/* ---------- prompt generation ---------- */
+function buildBase(){
+  const s=cur();const p=PROFILES[s.target]||PROFILES.generic;
+  const names=s.refs.map(r=>r.name).filter(Boolean);
+  const byId={};s.refs.forEach(r=>byId[r.id]=r);
+  const rels=s.conns.map(c=>{
+    const a=(byId[c.from]&&byId[c.from].name)||"?";
+    const b=(byId[c.to]&&byId[c.to].name)||"?";
+    return `${a} ${c.label||"relates to"} ${b}`;
+  });
+  return {p,names,rels};
+}
+
+function generateTemplate(){
+  const {p,names,rels}=buildBase();
+  const s=cur();
+  const scene=(s.script||s.videoOut||"(no script provided)").trim();
+  let out="";
+  out+=`VIDEO PROMPT — ${p.label}\n`;
+  out+=`Format: ${p.aspect} · ${p.dur} · ${p.fps} · ${p.res}\n\n`;
+  out+=`SCENE:\n${scene}\n\n`;
+  if(names.length){out+=`VISUAL ELEMENTS (keep these names consistent):\n`;names.forEach(n=>out+=`  • ${n}\n`);out+="\n";}
+  if(rels.length){out+=`RELATIONSHIPS / STAGING:\n`;rels.forEach(r=>out+=`  • ${r}\n`);out+="\n";}
+  out+=`STYLE & MOTION:\n${p.style}. ${p.tone}\n`;
+  out+=`\nAvoid: ${p.negative}`;
+  s.prompt=out;
+  $("promptOut").value=out;
+  persist();
+  toast("Template prompt generated.");
+  return out;
+}
+
+async function generateLLM(){
+  const s=cur();
+  const st=loadSettings();
+  if(!st.apiKey){toast("No API key — add one in LLM settings, or use “Generate (template)”.");return;}
+  const {p,names,rels}=buildBase();
+  const system=
+`You are a professional video-prompt script writer for generative video AI.
+You receive a scene: its script, its NAMED visual references, and the relationships between them.
+Write ONE polished, production-ready prompt tailored to the target video model's style and constraints.
+Rules: use the EXACT reference names provided so the model keeps those elements consistent; weave the relationships into staging; keep it focused and cinematic.
+Output ONLY the final prompt text, plus one trailing "Parameters:" line listing aspect, duration, fps, resolution. No explanations.`;
+  const user=
+`Target model: ${p.label} (${p.aspect}, ${p.dur}, ${p.fps}, ${p.res})
+Style guidance: ${p.style}
+
+SCENE SCRIPT:
+${s.script||"(none)"}
+
+VIDEO SCRIPT OUTPUT:
+${s.videoOut||"(none)"}
+
+VISUAL ELEMENT NAMES:
+${names.length?names.map(n=>"- "+n).join("\n"):"(none)"}
+
+RELATIONSHIPS:
+${rels.length?rels.map(r=>"- "+r).join("\n"):"(none)"}
+
+Write the final video prompt now.`;
+  try{
+    const base=st.baseUrl.replace(/\/+$/,"");
+    const r=await fetch(base+"/chat/completions",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+st.apiKey},
+      body:JSON.stringify({model:st.model,temperature:0.7,messages:[{role:"system",content:system},{role:"user",content:user}]})
+    });
+    if(!r.ok){const t=await r.text().catch(()=>"");throw new Error("HTTP "+r.status+" "+t.slice(0,200));}
+    const j=await r.json();
+    const out=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||"(empty response)";
+    s.prompt=out;$("promptOut").value=out;persist();
+    toast("LLM prompt generated.");
+  }catch(err){
+    toast("LLM failed: "+err.message+" — falling back to template.",3600);
+    generateTemplate();
+  }
+}
+
+/* ---------- connection drawing ---------- */
+function handleConnectClick(refId){
+  if(refId===connectFrom){connectFrom=null;setConnHint();renderRefs();return;}
+  if(!connectFrom){connectFrom=refId;setConnHint("now click a second reference…");renderRefs();return;}
+  const label=prompt("Relationship / staging note (how these two relate):","");
+  if(label!==null){
+    const s=cur();
+    s.conns.push({id:uid("c"),from:connectFrom,to:refId,label:(label||"").trim()});
+  }
+  connectFrom=null;setConnHint();renderRefs();persist();
+}
+function setConnHint(txt){const h=$("connHint");if(!connectMode){h.style.display="none";return;}h.style.display="inline";h.textContent=txt||"click first reference…";}
+function toggleConnect(){
+  connectMode=!connectMode;connectFrom=null;
+  $("connectBtn").classList.toggle("active",connectMode);
+  $("canvas").classList.toggle("connect-mode",connectMode);
+  setConnHint();
+}
+
+/* ---------- pointer: move & resize ---------- */
+function onPointerDown(e){
+  if(connectMode)return;
+  const card=e.target.closest(".ref");
+  if(!card){selectRef(null);if(connectFrom){connectFrom=null;setConnHint();renderRefs();}return;}
+  const id=card.dataset.id;
+  const s=cur();const r=s.refs.find(x=>x.id===id);
+  if(!r)return;
+  selectRef(id);
+  if(r.locked)return;
+  const isResize=e.target.classList.contains("resize");
+  drag={type:isResize?"resize":"move",id,startX:e.clientX,startY:e.clientY,origX:r.x,origY:r.y,origW:r.w,origH:r.h,moved:false};
+  e.preventDefault();
+}
+function onPointerMove(e){
+  if(!drag)return;
+  const dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;
+  const s=cur();const r=s.refs.find(x=>x.id===drag.id);if(!r)return;
+  if(Math.abs(dx)+Math.abs(dy)>2)drag.moved=true;
+  if(drag.type==="move"){
+    r.x=Math.max(0,drag.origX+dx);
+    r.y=Math.max(0,drag.origY+dy);
+  }else{
+    const nw=Math.max(40,drag.origW+dx);
+    const ratio=drag.origH/drag.origW;
+    r.w=nw;r.h=Math.max(40,nw*ratio);
+  }
+  // live-update DOM without full rebuild
+  const card=$("canvas").querySelector('.ref[data-id="'+r.id+'"]');
+  if(card){card.style.left=r.x+"px";card.style.top=r.y+"px";card.style.width=r.w+"px";card.style.height=r.h+"px";}
+  renderConns();
+}
+function onPointerUp(){
+  if(!drag)return;
+  if(drag.moved)persist();
+  drag=null;
+}
+
+function onCanvasClick(e){
+  if(!connectMode)return;
+  const card=e.target.closest(".ref");
+  if(!card){if(connectFrom){connectFrom=null;setConnHint();renderRefs();}return;}
+  handleConnectClick(card.dataset.id);
+}
+
+/* ---------- export / import ---------- */
+function exportJSON(){
+  const data={app:"scene-canvas",version:1,exportedAt:new Date().toISOString(),sheets};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="scene-canvas-sheets.json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast("Exported to scene-canvas-sheets.json");
+}
+function importJSON(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{
+      const d=JSON.parse(fr.result);
+      const arr=Array.isArray(d)?d:d.sheets;
+      if(!Array.isArray(arr)||!arr.length)throw new Error("No sheets found in file.");
+      if(!confirm("Import "+arr.length+" sheet(s)? This replaces the current board."))return;
+      sheets=arr;currentIdx=0;selectedRefId=null;connectFrom=null;
+      maxZ=1;sheets.forEach(s=>s.refs.forEach(r=>maxZ=Math.max(maxZ,r.z||1)));
+      renderAll();persist();toast("Imported "+arr.length+" sheet(s).");
+    }catch(err){toast("Import failed: "+err.message);}
+  };
+  fr.readAsText(file);
+}
+
+/* ---------- helpers ---------- */
+function escapeHtml(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function copyText(t){navigator.clipboard.writeText(t).then(()=>toast("Copied to clipboard.")).catch(()=>{const ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();toast("Copied to clipboard.");});}
+
+/* ---------- wiring ---------- */
+function wire(){
+  // tabs handled in renderTabs
+  $("saveBtn").addEventListener("click",()=>{persist();toast("Saved to this browser.");});
+  $("exportBtn").addEventListener("click",exportJSON);
+  $("importBtn").addEventListener("click",()=>$("importFile").click());
+  $("importFile").addEventListener("change",e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value="";});
+
+  $("sceneName").addEventListener("input",e=>{cur().name=e.target.value;renderTabs();persistSoon();});
+  $("scriptIn").addEventListener("input",e=>{cur().script=e.target.value;persistSoon();});
+  $("videoOut").addEventListener("input",e=>{cur().videoOut=e.target.value;persistSoon();});
+  $("target").addEventListener("change",e=>{cur().target=e.target.value;persistSoon();});
+
+  $("genTemplate").addEventListener("click",generateTemplate);
+  $("genLLM").addEventListener("click",generateLLM);
+  $("copyPrompt").addEventListener("click",()=>copyText($("promptOut").value));
+  $("clearPrompt").addEventListener("click",()=>{cur().prompt="";$("promptOut").value="";persist();});
+
+  // settings
+  ["setBase","setKey","setModel"].forEach(id=>$(id).addEventListener("change",saveSettings));
+
+  // toolbar
+  $("connectBtn").addEventListener("click",toggleConnect);
+  $("resetView").addEventListener("click",()=>$("canvas-scroll").scrollTo({top:0,left:0}));
+  $("clearSheet").addEventListener("click",()=>{if(confirm("Remove all references & connections from this sheet?")){cur().refs=[];cur().conns=[];selectedRefId=null;connectFrom=null;renderRefs();persist();}});
+  $("opacity").addEventListener("input",e=>{const r=cur().refs.find(x=>x.id===selectedRefId);if(r){r.opacity=e.target.value/100;const c=$("canvas").querySelector('.ref[data-id="'+r.id+'"]');if(c)c.style.opacity=r.opacity;persistSoon();}});
+  $("lockBtn").addEventListener("click",()=>{const r=cur().refs.find(x=>x.id===selectedRefId);if(r){r.locked=!r.locked;renderRefs();persist();}});
+  $("frontBtn").addEventListener("click",()=>{const r=cur().refs.find(x=>x.id===selectedRefId);if(r){maxZ++;r.z=maxZ;renderRefs();persist();}});
+  $("renameBtn").addEventListener("click",()=>{const r=cur().refs.find(x=>x.id===selectedRefId);if(!r)return;const v=prompt("Name this reference:",r.name);if(v!==null){r.name=v.trim()||r.name;renderRefs();persist();}});
+  $("delRefBtn").addEventListener("click",()=>{if(selectedRefId)deleteRef(selectedRefId);});
+
+  // canvas pointer + click
+  const canvas=$("canvas");
+  canvas.addEventListener("pointerdown",onPointerDown);
+  canvas.addEventListener("click",onCanvasClick);
+  window.addEventListener("pointermove",onPointerMove);
+  window.addEventListener("pointerup",onPointerUp);
+
+  // drop
+  const scroll=$("canvas-scroll");
+  scroll.addEventListener("dragover",e=>{e.preventDefault();scroll.classList.add("drag");});
+  scroll.addEventListener("dragleave",e=>{if(!scroll.contains(e.relatedTarget))scroll.classList.remove("drag");});
+  scroll.addEventListener("drop",async e=>{
+    e.preventDefault();scroll.classList.remove("drag");
+    const files=[...e.dataTransfer.files].filter(f=>f.type&&f.type.startsWith("image/"));
+    if(!files.length){toast("No image files found in drop.");return;}
+    const rect=canvas.getBoundingClientRect();
+    let bx=e.clientX-rect.left, by=e.clientY-rect.top;
+    for(let i=0;i<files.length;i++){
+      try{
+        const {src,w,h}=await fileToDataURL(files[i]);
+        const dispW=Math.min(340,w);
+        const dispH=dispW*(h/w);
+        const x=bx-dispW/2+i*26, y=by-dispH/2+i*26;
+        addRef(src,x,y,dispW,dispH);
+      }catch(err){/* skip */}
+    }
+    bx+=files.length*26;by+=files.length*26;
+    toast("Added "+files.length+" reference(s).");
+  });
+
+  // keyboard
+  window.addEventListener("keydown",e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();persist();toast("Saved to this browser.");return;}
+    const tag=(e.target.tagName||"").toLowerCase();
+    if(tag==="input"||tag==="textarea"||tag==="select")return;
+    if((e.key==="Delete"||e.key==="Backspace")&&selectedRefId){e.preventDefault();deleteRef(selectedRefId);}
+    if(e.key==="Escape"){if(connectMode)toggleConnect();selectRef(null);}
+  });
+}
+
+/* ---------- init ---------- */
+function init(){
+  loadSheets();
+  if(!sheets.length)newSheet("Scene 1");
+  currentIdx=0;
+  wire();
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
